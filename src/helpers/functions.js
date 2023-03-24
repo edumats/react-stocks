@@ -1,23 +1,19 @@
-// Calculates total stock value
-export function calculateStockValue(symbol, quantity) {
-    { }
-}
-
 // Checks if current stock data is in local storage, if not, calls API to retrieve
 export function fetchStockData(symbol) {
-    let response;
+    let stockData;
     // If not found in sessionStorage, fetches from API
     if (sessionStorage.getItem(symbol) === null) {
-        response = getStock([symbol]);
-        console.log(`Fetching from API: ${response}`)
-        sessionStorage.setItem(symbol, JSON.stringify(response))
+        (async () => {
+            [ stockData ] = await getStock([symbol])
+            console.log(`Fetching from API: ${stockData}`)
+            sessionStorage.setItem(symbol, JSON.stringify(stockData))
+        })();
     } else {
         // Fetches stock data from sessionStorage
-        response = JSON.parse(sessionStorage.getItem(symbol))
-        console.log(`Get from LS: ${JSON.stringify(response)}`)
+        stockData = JSON.parse(sessionStorage.getItem(symbol))
+        console.log(`Get from LS: ${JSON.stringify(stockData)}`)
     }
-    console.log(`Fetching: ${response}`)
-    return response
+    return stockData
 }
 
 // Makes API call to retrieve that from a symbol, returns a array with the results
@@ -34,6 +30,7 @@ export async function getStock(symbol) {
     })
 
     const data = await response.json()
+    // Returns an array with one of more objects, each object corresponds to a stock data
     return data['results']
 }
 

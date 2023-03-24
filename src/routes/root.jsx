@@ -6,7 +6,8 @@ import Box from '@mui/system/Box'
 import Container from '@mui/system/Container'
 
 export default function Root() {
-    const [cash, setCash] = useState(10_000)
+    // Using integers to store monetary value
+    const [cash, setCash] = useState(1_000_000)
     const [stocks, setStocks] = useState(
         [
             {

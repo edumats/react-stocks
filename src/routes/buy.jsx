@@ -1,35 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import FormControl from '@mui/material/FormControl'
-import FormGroup from '@mui/material/FormGroup'
-import FormLabel from '@mui/material/FormLabel'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box'
-import { getStock, validateNumberInput, validateSymbol, cashToInteger } from '../helpers/functions'
+import { getStock, validateNumberInput, validateSymbol, cashToInteger, fetchStockData } from '../helpers/functions'
+import { Typography } from '@mui/material';
 
 export default function TransactionForm(props) {
   const [stocks, setStocks, cash, setCash] = useOutletContext();
   const [symbol, setSymbol] = useState('')
   const [quantity, setQuantity] = useState(0)
-  const [isDisabled, setIsDisabled] = useState(true)
+  const [isButtonDisabled, setButtonDisabled] = useState(true)
   const [preview, setPreview] = useState('')
+  const [isPreviewVisible, setPreviewVisible] = useState(false)
+  const [isDataValid, setDataValid] = useState(false)
+
+  useEffect(() => {
+    setButtonDisabled(!isDataValid);
+    setPreviewVisible(isDataValid);
+  }, [isDataValid])
 
   useEffect(() => {
     // If both fields have valid values, activate button. Otherwise, disable button
     if (validateSymbol(symbol) && validateNumberInput(quantity)) {
-      setIsDisabled(false);
-      setPreview()
+      setDataValid(true)
+      console.log(`Button active. Symbol: ${symbol} quantity: ${quantity}`)
+      setPreview(fetchStockData(symbol)['regularMarketPrice'] * 100 * quantity)
       return;
     }
-    setIsDisabled(true)
+    console.log(`Button disabled. Symbol: ${symbol} quantity: ${quantity}`)
+    setDataValid(false)
   }, [symbol, quantity])
-
-  // Saves symbol to state in uppercase
-  function handleSymbolChange(event) {
-    const { value } = event.target;
-    setSymbol(value.toUpperCase());
-  }
 
   // If not numbers, ignore when saving to state
   function handleQuantityChange(event) {
@@ -128,26 +129,32 @@ export default function TransactionForm(props) {
   }
 
   return (
-    <FormControl sx={{ width: '100%'}}>
-      <FormGroup>
-        <FormLabel>Ação</FormLabel>
-        <FormControl type="text" value={symbol} onChange={e => {handleSymbolChange(e);}}/>
-        <TextField>
-          Por exemplo, PETR3
-        </TextField>
-      </FormGroup>
-
-      <FormGroup>
-        <FormLabel>Quantidade</FormLabel>
-        <FormControl type="text" pattern="[0-9]"  value={quantity} onChange={e => {handleQuantityChange(e);}}/>
-        <TextField>
-          Somente números inteiros, a partir de 1
-        </TextField>
-      </FormGroup>
-      <Box>{preview}</Box>
-      <Button variant="contained" onClick={props.mode === "buy" ? addToStocks : removeFromStocks} disabled={isDisabled}>
+    <Box component="form" sx={{display: "flex", flexDirection: "column", width: "80%", margin: "auto"}}>
+      <TextField 
+        label="Ação"
+        helperText="Insira o nome da ação"
+        type="text"
+        margin="normal"
+        value={symbol}
+        onChange={e => setSymbol(e.target.value.toUpperCase())}
+      />
+      <TextField
+        label="Quantidade"
+        helperText="Somente números. Por exemplo, 3"
+        type="number"
+        margin="normal"
+        value={quantity}
+        onChange={handleQuantityChange}
+      />
+      {isPreviewVisible ? (
+        <Typography my={1} variant="subtitle2" component="p">
+          Total da {props.mode === "buy" ? "compra" : "venda"}: R$ {(preview / 100).toFixed(2)}
+        </Typography>
+      ) : null}
+      
+      <Button variant="contained" onClick={props.mode === "buy" ? addToStocks : removeFromStocks} disabled={isButtonDisabled}>
         {props.mode === "buy" ? "Comprar" : "Vender"}
       </Button>
-    </FormControl>
+    </Box>
   );
 }
