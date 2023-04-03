@@ -3,29 +3,45 @@ import { useOutletContext } from 'react-router-dom';
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box'
-import { getStock, validateNumberInput, validateSymbol, cashToInteger, fetchStockData } from '../helpers/functions'
+import {
+  getStock,
+  validateNumberInput,
+  validateSymbol,
+  cashToInteger,
+  fetchStockData,
+  integerToReais,
+} from '../helpers/functions'
 import { Typography } from '@mui/material';
 
 export default function TransactionForm(props) {
-  const [stocks, setStocks, cash, setCash] = useOutletContext();
+  const [stocks, setStocks, cash, setCash, setSnackBar] = useOutletContext();
   const [symbol, setSymbol] = useState('')
   const [quantity, setQuantity] = useState(0)
   const [isButtonDisabled, setButtonDisabled] = useState(true)
+  // Preview of the buy or sell operation
   const [preview, setPreview] = useState('')
   const [isPreviewVisible, setPreviewVisible] = useState(false)
   const [isDataValid, setDataValid] = useState(false)
 
+  // Is form fields valid, activate preview and button
   useEffect(() => {
     setButtonDisabled(!isDataValid);
     setPreviewVisible(isDataValid);
   }, [isDataValid])
 
+  // If both fields have valid values, set Data state to true and calculate preview
   useEffect(() => {
-    // If both fields have valid values, activate button. Otherwise, disable button
     if (validateSymbol(symbol) && validateNumberInput(quantity)) {
       setDataValid(true)
       console.log(`Button active. Symbol: ${symbol} quantity: ${quantity}`)
-      setPreview(fetchStockData(symbol)['regularMarketPrice'] * 100 * quantity)
+      fetchStockData(symbol)
+      .then((data) => {
+        setPreview(data['regularMarketPrice'] * 100 * quantity)
+      })
+      .catch((error) => {
+        throw new Error(`Error retrieving data: ${error}`)
+      })
+      
       return;
     }
     console.log(`Button disabled. Symbol: ${symbol} quantity: ${quantity}`)
@@ -57,6 +73,7 @@ export default function TransactionForm(props) {
 
     // Throws error if stock being sold is not found in stocks
     if (index === -1) {
+      setSnackBar({message: 'O código da ação não existe', severity: 'error'})
       throw new Error('Symbol was not found in your stocks')
     }
     // Update stock's history with a sell event
@@ -75,13 +92,16 @@ export default function TransactionForm(props) {
     }))
     // Update cash with the total sold out
     setCash(cash + (cashToInteger(regularMarketPrice) * quantity))
-
+    setSnackBar({message: 'Ativos vendidos com sucesso', severity: 'success'})
+    setSymbol('')
+    setQuantity('')
   }
 
   // Function for buying stocks
   async function addToStocks() {
     // Checks if quantity is an integer
     if (!Number.isInteger(quantity)) {
+      setSnackBar({message: 'Insira uma quantidade válida', severity: 'error'})
       throw new Error('Quantity is not an integer!')
     }
     // Get updated stock data
@@ -126,11 +146,19 @@ export default function TransactionForm(props) {
       }))
     }
     setCash(cash - (cashToInteger(regularMarketPrice) * quantity))
+    setSnackBar({message: 'Ativo comprado com sucesso', severity: 'success'})
+    setSymbol('')
+    setQuantity('')
   }
 
   return (
-    <Box component="form" sx={{display: "flex", flexDirection: "column", width: "80%", margin: "auto"}}>
-      <TextField 
+    <Box component="form" sx={{
+      width: '80%',
+      margin: 'auto',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <TextField
         label="Ação"
         helperText="Insira o nome da ação"
         type="text"
@@ -148,11 +176,18 @@ export default function TransactionForm(props) {
       />
       {isPreviewVisible ? (
         <Typography my={1} variant="subtitle2" component="p">
-          Total da {props.mode === "buy" ? "compra" : "venda"}: R$ {(preview / 100).toFixed(2)}
+          Total da {props.mode === "buy" ? "compra" : "venda"}: {integerToReais(preview)}
         </Typography>
       ) : null}
       
-      <Button variant="contained" onClick={props.mode === "buy" ? addToStocks : removeFromStocks} disabled={isButtonDisabled}>
+      <Button
+        variant="contained"
+        onClick={props.mode === "buy" ? addToStocks : removeFromStocks}
+        disabled={isButtonDisabled}
+        sx={{
+          maxWidth: '100%',
+        }}
+      >
         {props.mode === "buy" ? "Comprar" : "Vender"}
       </Button>
     </Box>

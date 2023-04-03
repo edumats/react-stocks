@@ -1,33 +1,56 @@
-// Checks if current stock data is in local storage, if not, calls API to retrieve
-export function fetchStockData(symbol) {
-    let stockData;
-    // If not found in sessionStorage, fetches from API
-    if (sessionStorage.getItem(symbol) === null) {
-        (async () => {
-            [ stockData ] = await getStock([symbol])
-            console.log(`Fetching from API: ${stockData}`)
-            sessionStorage.setItem(symbol, JSON.stringify(stockData))
-        })();
-    } else {
-        // Fetches stock data from sessionStorage
-        stockData = JSON.parse(sessionStorage.getItem(symbol))
-        console.log(`Get from LS: ${JSON.stringify(stockData)}`)
+// Format integer to Brazilian currency and return as string
+export function integerToReais(integer) {
+    const toDecimal = integer / 100
+    return toDecimal.toLocaleString(
+        'pt-BR',
+        {style: 'currency', currency: 'BRL'}
+    ).toString()
+}
+
+// Takes a date string and compare with current datetime, check if less than the elapsed time in minutes
+// Default minutes = 15
+export function isDataStale(date1, minutes = 15) {
+    const providedDate = new Date(date1)
+    const currentDate = new Date()
+    const difference = currentDate - providedDate
+    const convertToMinutes = difference => difference / 1000 * 60
+    if (convertToMinutes(difference) > minutes) {
+        return true
     }
-    return stockData
+    return false
+}
+
+// If stock data is not in local storage or is it stale, calls API to retrieve data
+// Otherwise, get data from localStorage
+export async function fetchStockData(symbol) {
+    let stockData;
+    const foundInLocalStorage = localStorage.getItem(symbol)
+    // If not found in localStorage, fetches from API
+    if (foundInLocalStorage === null || isDataStale(foundInLocalStorage['regularMarketTime'], 1)) {
+        try {
+            [ stockData ] = await getStock([symbol])
+        } catch (error) {
+            throw new Error('Error fetching from API')
+        }
+        
+        console.log(`Fetching from API: ${stockData['regularMarketPrice']}`)
+        localStorage.setItem(symbol, JSON.stringify(stockData))
+        return stockData
+    } else {
+        // Fetches stock data from localStorage
+        stockData = JSON.parse(localStorage.getItem(symbol))
+        console.log(`Get from LS: ${JSON.stringify(stockData)}`)
+        return stockData
+    }
 }
 
 // Makes API call to retrieve that from a symbol, returns a array with the results
 export async function getStock(symbol) {
     const response = await fetch(`https://brapi.dev/api/quote/${symbol.join(',')}`)
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Error contacting the API')
-        }
-        return response
-    })
-    .catch(error => {
-        console.error(error)
-    })
+    
+    if (!response.ok) {
+        throw new Error('Error contacting API')
+    }
 
     const data = await response.json()
     // Returns an array with one of more objects, each object corresponds to a stock data
@@ -53,7 +76,7 @@ export function validateNumberInput(value) {
 
 // Returns true if valid Brazilian symbol, otherwise, false
 export function validateSymbol(symbol) {
-    const symbolValidator = /^[A-Z]+[1-9]{1,2}[A-Z]?$/;
+    const symbolValidator = /^[A-Z]{4}[1-9]{1,2}[A-Z]?$/;
     return symbolValidator.test(symbol)
 }
 
